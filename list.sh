@@ -1,20 +1,13 @@
 #!/bin/bash
 # merge, dev, alpha, staging, producton
-env=(merge production)
+env=(merge dev alpha staging production)
 version=${1:-1.38.0-SNAPSHOT}
-gsutil -q cp gs://deployment-tracking/endpoints.json .
-mergedate=""
-proddate=""
+if [ ! -f "endpoints.json" ]; then
+  # This file gets deleted at the beginning of the generate_report.py file
+  gsutil -q cp gs://deployment-tracking/endpoints.json .
+fi
+
 for i in ${env[@]}; do
   input=$(jq '.data[] | select(.semVer | contains("'"$version"'")) | select(.env | contains("'"$i"'"))' endpoints.json | jq -s '.')
-  if [[ $(echo $input | jq -r .[0].env) == "merge" ]]; then
-    mergedate=$(echo $input | jq -r .[0].date)
-    A=$(echo ${mergedate} | awk '{print $1}')
-    printf "${version}: merge date: $A\n"
-  else
-    proddate=$(echo $input | jq -r .[0].date)
-    B=$(echo ${proddate} | awk '{print $1}' )
-    printf "${version}: production date: $B\n"
-  fi
+  echo $input | jq -r -c .[0]
 done
-printf "Number of days to Production: $(((`date -jf %Y-%m-%d $B +%s` - `date -jf %Y-%m-%d $A +%s`)/86400))\n"
